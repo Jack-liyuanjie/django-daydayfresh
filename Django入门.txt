@@ -1,0 +1,2221 @@
+1.1 基本概念
+1.2 创建环境与app项目
+安装依赖包
+pip install django==2.0.1
+
+进入到"终端"命令，通过django-admin命令创建django项目。
+django-admin startproject helloDjango
+
+通过django-admin命令创建app
+django-admin startapp mainapp
+
+在一个Django项目中，存在很多的app应用(模块)，创建好的app需要注册到主工程中
+（settings.py）
+
+项目结构如下：
+helloDjango
+    |--- helloDjango    主工程目录
+        |--- settings.py    # 设置文件，数据库连接，app注册，中间件及模板配置
+        |--- urls.py        # 总路由
+        |--- wsgi.py        # Django实现wsgi的脚本
+        |--- __init__.py    #
+    |--- mainapp.py   # 应用模块（主）
+        |--- __init__.py
+        |--- admin.py     # 后台管理配置脚本
+        |--- models.py    # 数据模型类声明所在脚本
+        |--- views.py     # 声明当前应用的视图处理函数或类
+        |--- urls.py      # 自己增加的当前应用模块的子路由
+        |--- tests.py     # 当前应用模块的单元测试类
+        |--- apps.py      # 声明当前应用的基本信息
+    |--- manage.py     web应用的启动脚本，项目工程的入口
+
+Django请求流程：
+1.到urls分发器
+2.urls分发器根据路由规则(正则)分发到views
+3.views去调用Model， 交互数据
+4.views将数据渲染到模板中
+5.模板呈现给用户
+
+二， 数据库连接配置
+默认是sqlite3数据库，在使用ORM模型之前，需要先生成迁移文件，再执行迁移命令，在数据库中
+生成这些模型对应的表
+1. 先生成迁移文件
+python manage.py makemigrations
+2.开始迁移(生成表，修改表，删除表)
+python manage.py migrate
+【注意】一旦生成了迁移文件并且迁移成功之后， 不要删除迁移文件
+
+2.2初步使用ORM模型
+在app模块中的models.py定义一个用户(客户)模型
+from django.db import models
+
+class UserEntity(models.Model):
+    # 默认情况下会自动创建主键
+    name = models.CharField(max_length=20)
+    age = models.IntegerFiled(default=0)
+    phone = models.CharField(max_length=11)
+
+    class Meta:
+        # 指定当前模型类映射成哪一个表 定义表名
+        db_table = 'app_user'
+
+【模型创建完成后，先后执行生成迁移文件和迁移】
+
+2.3CURD
+查询
+UserEntity.objects.all()  # 查询到所有， list
+UserEntity.objects.get(pk=id) # 根据主键查询一个实体对象
+
+增加
+u = UserEntity()
+u.name = '李元杰'
+u.age = 23
+# 保存模型对象
+u.save()
+
+更新
+u = UserEntity.objects.get(3)
+u.name = '李成'
+u.save()
+
+删除
+u = UserEntity.objects.get(1)
+u.delete()  # 删除
+
+
+三，Admin的site站点配置
+1.创建超级用户
+python manage.py createsuperuser
+根据提示用户输入用户名，邮箱
+启动服务后可以在/admin页面进行登录
+2.定制admin管理
+2.1.注册自己的模块
+在自己模块的admin.py文件中
+admin.site.register(Store)
+2.2效果显示
+class UserAdmin(admin.ModelAdmin):
+    # 后台显示字段的行列
+    list_display = ('id', 'name', 'phone')
+    # 分页设置每页显示2条
+    list_per_page = 2
+    # 过滤器，一般来配置分类字段
+    list_filter = ('id', 'phone')
+    # 搜索字段
+    search_fields = ('id', 'phone')
+
+2.3内联显示
+
+四，综合案例-水果管理
+4.1模型设计
+# Fruit 水果模型类(name,price,source,cate_type)
+# FruitImage 水果图片模型类(fruit_id, url, width, height, name)
+# CateType 水果分类(name, order_num)
+
+# store 水果商店(name, name,boss_name, phone, address, city, lat, lon)
+# storeDetail 水果商店的详情
+
+4.2 模板的基本使用
+循环语句块
+{% for itme in items %}
+{% endfor %}
+
+分支循环
+{% if 条件表达式 %}
+{% endif %}
+
+变量名
+{{ 变量名 }}
+
+在views.py视图函数中，渲染模板
+return render(request,'fruit/list.html', locals())
+
+3.3 页面设计
+{% block name %}
+{% endblock %}
+
+{% extends "base.html" %}
+
+
+web后端服务
+一，ORM模型之字段类型和约束
+1.1字段类型
+1.2约束
+1.3FileField和imagefield
+文件字段和图片字段都属于MEDIA的多媒体类型的文件，需要在settings.py设置脚本文件中指定
+MEDIA_ROOT,MEDIA_URL,STATIC_URL,STATICFILES_DIRS
+
+使用ImageField时
+安装 pip install pillow
+
+1.# 在主目录下创建media目录
+
+2.settings脚本中加入如下字段
+# 模型类中使用上传文件的字段时，文件的访问路径是相对于MEDIA
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+3.在主urls.py文件如下操作
+from django.conf import settings
+from django.conf.urls.static import static
+
+urlpatterns = [
+    path('admin/', admin.site.urls),
+    path('index', index),
+    # 配置子路由， include()导入app模块下urls.py中声明所有子路由
+    path('user/', include('mainapp.urls'))
+]+static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+二，模型的Meta元信息
+1.db_table
+2.ordering
+3.verbose_name
+4.verbose_name_plural
+5.unique_together
+6.abstract 布尔类型，表示当前的模型是否为抽象类，如果时抽象类，则不会创建表
+  class Meta:  # 元数据
+        db_table = 't_store' # 表名
+        unique_together = (('name', 'city'),) # 关联字段限制
+        verbose_name = '水果店' # admin后台表名
+        verbose_name_plural = verbose_name # 表的复数使用
+
+三，CURD深度使用
+3.1了解模型类中的objects是什么？
+默认情况下，由创建模型类的元类在模型类中会创建一个django.db.models.Manager类对象，赋给objects。
+Manager类实际是QuerySet类的子类
+
+我们可以在模型类中，创建objects，但是必须为Manager类对象。不能是普通的字段
+class CateTypetity(models.Model):
+    name = models.Charfield(max_length)
+    # objects = models.IntegerField(default=0) # 错误的写法
+    objects = models.Manager() # 正确的写法
+3.2 过滤器
+filter 选出符合条件的数据
+exclude  去掉符合条件的
+模型类.objects.filter(属性名__条件=条件值)
+模型类.objects.filter(属性名=条件值)
+模型类.objects.filter(属性名__时间属性__条件=条件值)
+
+条件包含
+大于gt， 小于lt，大于等于gte，小于等于lte
+字符串相关:contains包含(区分大小写),icontains(),startswith,endswith,istartswith,iendswith
+null相关：isnull(),isnotnull()
+范围：in
+
+时间属性包含：
+year month day
+hour,minute,second
+
+3.3 QuerySet对象的方法
+QuerySet对象本身可以被迭代
+filter()
+exclude()
+all()
+
+get()
+last()
+first()
+
+count()返回当前查询集中的对象个数
+exists()判断查询集中是否有数据，如果有数据返回Ture，反之返回false
+values() 一条数据就是一个字典，如果API接口，即返回json数据时，用此方法
+values_list()
+order_by() 排序
+
+过滤器支持链式调用
+Car.objects.filter(price_gt=10).exclude(price_gt=20)
+
+create()更新
+Car.objects.create(name="奥迪Q1"，price=34.5)
+
+car = {"name":"奥迪Q5",price:100}
+Car.objects.create(**car)
+
+3.4级联查询
+
+3.5聚合查询
+aggregate() 计算一些属性的值
+
+先导入包： from django.db.models import (Avg,Max,Min,Sum,Count)
+常用的统计函数
+Avg
+Max
+Min
+Sum
+Count
+
+如下：
+def count_fruit(request):
+    # 返回json数据：统计每种分类的水果数据，最高价格，和最低价格和总价格
+    result = FruitEntity.objects.aggregate(Count('name'),Min('price'),Max('price'),Avg('price'),Sum('price'))
+    return JsonResponse(result)
+
+作业：
+1.QuerySet中是否存在delete()方法来删除满足条件的所有数据
+2.增加水果的图片信息
+3.增加水果店与水果的关系
+
+
+第三天
+官方文档：https://docs.djangoproject.com/zh-hans/2.1
+
+1.1查询对象F和Q
+F对象
+可以将自己的属性作为条件值,获取字段的值参与计算或者作为更新的条件
+from django.db.models import F
+Store.objects.filter(id=F('years'))
+
+并且还支持运算
+Store.objects.filter(id=1).update(years=F('years')+5)
+
+Q对象
+查询条件的封装
+Q(条件)  from django.db.models import Q
+# 查询价格低于10，或者高于100的水果,或者是原产地广州而且名字带果的
+fruit2 = FruitEntity.objects.filter(
+    Q(price__lte=10) | Q(price__gte=100) | Q(Q(name__contains='果') & Q(source='广州'))).values()
+
+可以进行逻辑运算：
+&  与
+|  或
+~  非
+
+1.2原生的sql语句查询
+针对复杂查询来说，通过QuerySet查询不是特别方便，则使用原生的SQL查询
+QuerySet提供2种原生SQL查询：
+QuerySet.raw()
+QuerySet.extra()
+
+【注意】查询的字段必须是模型类中声明的字段，而且而且必须存在主键列，查询结构是rawQuerySet类对象,可以迭代，元素类型是模型对象
+        另外，查询sql语句中可以使用"%s"或"%(name)S"占位符，在其他可以使用元组或关键参数传值
+raw_queryset = FruitEntity.objects.raw('select id,name,price from t_fuite where price < %s order by price DESC limit %s, 4',(200,0))
+for fruit in raw_queryset:
+    print(fruit)
+
+raw_queryset = FruitEntity.objects.raw('select id,name,price from t_fuite where price < %(price)s order by price DESC limit %(page)s, 4',{'price':200,'page':0})
+for fruit in raw_queryset:
+    print(fruit)
+
+QuerySet.extra()
+extra()扩展查询，针对QuerySet查询结果集中，额外增加查询条件或排序等相关操作，返回结果还是QuerySet对象
+queryset = FruitEntity.objects.extra(where=['price<%s or name like %s','source=%s'],params=[10,'果','泰国'])
+for fruit in queryset:
+    print(fruit)
+
+1.3使用django.db.connection数据库连接对象进行原生SQL查询
+connection对象表示与数据库连接的对象，可以通过connection连接对象获取游标cursor对象
+再通过cursor的execute()/fetchall()/rowcount相关方法或函数来执行原生的SQL和执行的结果
+
+from django.db import connection
+
+cursor = connection.cursor()
+
+cursor.execute('select * from t_fuite')
+
+cursor.fetchall() # 查询所有数据
+
+cursor.execute('update t_fuite set price=26 where id=1') # 更新数据
+
+connection.commit() #提交更新
+
+模型类之间的关系
+3.1 扩展：显性方式创建objects
+class orderManager(models.Manager):
+    def get_queryset(self):
+        return super().get_queryset().filter(~models.Q(status=5)
+# 统计2018年全年销售额
+OrderModel.objects.filter(create_time__year=2018).aggregate(total_price=Sum('price')
+
+1.一对一
+一对一的关系可以通过models.OneToOneFiled(关联模型类, on_delete=models.CASCADE)建立，
+on_delete除了CASCADE级联删除之外,还有models.SET_NULL级联设置为null
+class RealProfile(models.Model):
+    # 声明一对一的关联关系
+    user = models.OneToOneField(UserEntity, verbose_name='账号',
+                                on_delete=models.CASCADE)
+    real_name = models.CharField(max_length=20,
+                                 verbose_name='真实姓名')
+    number = models.CharField(max_length=30,
+                              verbose_name='证件号')
+    real_type = models.IntegerField(verbose_name='证件类型',
+                                    choices=((0, '身份证'),
+                                             (1, '护照'),
+                                             (2, '驾驶证')))
+    image1 = models.ImageField(verbose_name='正面照',
+                               upload_to='user/real')
+    image2 = models.ImageField(verbose_name='反面照',
+                               upload_to='user/real')
+主表:用户表，从表：实名认证表
+从表对象获取 主表的数据
+u1 = RealProfile.objects.filter(real_name='袁杰').first()
+u1.user.phone # 直接访问主表对象的数据
+主表对象获取从表的数据
+login_u1 = UserEntity.objects.get(pk=1)
+# 以隐形方式读取从表的数据：对象，关联模型类全小写名称.属性
+login_u1.realprofile.number
+
+--------------------------------------------------------------------------------------------------
+2.一对多
+从读取主对象信息
+self.fruit.price (从模型对象.主模型对象字段.主模型对象字段属性)
+class FruitCartEntity(models.Model):
+    cart = models.ForeignKey(CartEntity,
+                             on_delete=models.CASCADE,
+                             verbose_name='购物车')
+    fruit = models.ForeignKey(FruitEntity,
+                              on_delete=models.CASCADE,
+                              verbose_name='水果名')
+    cnt = models.IntegerField(verbose_name='数量',
+                              default=1)
+
+    def __str__(self):
+        return self.fruit.name + ':' + self.cart.no
+
+    @property
+    def price(self):
+        # 属性方法再后台显示的时候没有verbose_name,如何解决?
+        return round(self.cnt * self.fruit.price, 2)
+
+    @property
+    def price1(self):
+    # 属性方法再后台显示的时候没有verbose_name,如何解决?
+        return self.fruit.price  # 从表中获取主表的对象属性
+
+    class Meta:
+        db_table = 't_fruit_cart'
+        verbose_name_plural = verbose_name = '购物车详情表'
+
+主读取多个从对象信息
+login_u = UserEntity.objects.get(pk=1)
+# 查询当前用户中的所有商品及数量的信息
+login_u.cartentity.fruitcartentity_set.all()    【】类名加_set反向引用
+--------------------------------------------------
+login_u2 = CartEntity.objects.get(no=100990)
+login_u2.fruitcartentity_set.all()
+<QuerySet [<FruitCartEntity: 火龙果:100990>, <FruitCartEntity: 西瓜:100990>, <FruitCartEntity: 榴莲:100990>]>
+for f in login_u2:
+    print(f.name,f.price,f.cnt)
+--------------------------------------------------
+注意：如果FruitCartEntity模型中没有定义__str__函数声明返回内容则返回fruitcartentity.objects的查询结果集，如果声明了则返回声明内容
+class FruitCartEntity(models.Model):
+    cart = models.ForeignKey(CartEntity,
+                             on_delete=models.CASCADE,
+                             verbose_name='购物车')
+    fruit = models.ForeignKey(FruitEntity,
+                              on_delete=models.CASCADE,
+                              verbose_name='水果名')
+    cnt = models.IntegerField(verbose_name='数量',
+                              default=1)
+
+    # def __str__(self):
+    #     return self.fruit.name + ':' + self.cart.no
+
+3.多对多
+models.ManyToMany
+需求：用户收藏商品，需要建立第三方表，完成用户收藏多个商品，或一个商品被多为位用户收藏。
+在FruitEntity模型类中，增加users属性，内容如下
+# 用户和商品建立多对多关系，虚拟的收藏表，一个商品可以被多个用户收藏，一个用户可以收藏多个商品
+# 默认情况下，反向引用的名称是当前类的名称（小写）_set
+# 可以通过related_name来指定
+# db_table = 't_collect'使用第三张表建立fruit和user的多对多关系
+    users = models.ManyToManyField(UserEntity,
+                                   db_table='t_collect',
+                                   related_name='fruits',
+                                   verbose_name='收藏用户列表')
+
+文件迁移后，模拟用户收藏商品
+u1 = UserEntity.objects.get(pk=1)
+u1.fruits.add(FruitEntity.objects.get(pk=1))
+u1.fruits.add(FruitEntity.objects.get(pk=2))
+
+u2 = UserEntity.objects.get(pk=2)
+u2.fruits.add(FruitEntity.objects.get(pk=1))
+
+查看商品被哪些用户收藏了
+fruit1 = FruitEntity.objects.get(pk=2)
+fruit1.users.all()
+
+用户取消收藏
+u1.fruits.remove(FruitEntity.objects.get(pk=1))
+-------------------------------------------------------------------------------------------------------------
+显性对象：
+1.开发者手动创建的对象
+    在模型类中，开发者声明的属性字段
+
+隐形对象：
+系统为我们自动补充创建的对象，如objects由models.Model的元类创建的
+objects
+1.objects是models.Manager类型
+2.默认自动生成
+3.如果手动指定，则系统不会再为我们生成这个对象
+4.自定义Manager
+4.1继承自Manager
+4.2创建自己的模型
+4.3重写get_queryset()
+如：
+class MyManager(models.Manager):
+    def create(self,name,phone):
+        person = self.model()
+        person.name = name
+        person.phone = phone
+        return person
+
+    def get_queryset(self):
+        return super().get_queryset().filter(state=0)
+
+-------------------------------------------------------------------
+二，模板语法
+2.1MTV设计中的TV的关系
+V视图处理函数可以渲染(使用)多个模板
+一个模板T可以被任意的V视图函数使用
+
+2.2模板的加载过程
+from django.template import loader
+
+模板加载对象：django.template.loader 对象
+
+加载
+template = loader.get_template('index.html')
+
+渲染
+template.render(context) # context是一个dict类对象
+
+加载+渲染
+html = loader.render_to_string("index.html", context)
+
+2.3模板中使用"."语法
+使用"."访问变量Variable的属性，系统尝试以下顺序查询
+
+字典
+
+属性或方法
+
+列表的数值索引
+<p style="color: green">
+    中奖学员：{{ users.3.name }}
+</p>
+-------------------------------------------------------
+模板表达式标签
+for in
+1.遍历集合(数组，列表)
+{% for f in foo %}
+语句1
+{% empty %}
+语句2
+{% endfor %}
+
+2.forloop
+counter:表示从1开始叠加
+counter0：表示从0开始叠加
+revcounter:orloop.revcounter的值是一个整数,表示循环中剩余的元素数量。第一次循环时, forloop.revcounter 的值是序列中要遍历的元素总数。
+    最后一次循环时, forloop.revcounter的值为 1
+revcounter0:forloop.revcounter0 与 forloop.revcounter类似,不过索引是基于零的。第一次循环时, forloop.revcounter0的值是序列中元素数量减去一。
+    最后一次循环时, forloop.revcounter0 的值为 0 。
+first:是个布尔值，第一次循环为True
+last：是个布尔值，最后一次循环为Ture
+
+ {% for user in users %}#}
+{#      <li>{{ user.id }} {{ user.name }}</li>#}
+{#      {% if forloop.counter0 == error_index %}#}
+{#        <p style="color: red">#}
+{#            请客的人：{{ user.name }}#}
+{#        </p>#}
+{#        {% endif %}#}
+{#    {% endfor %}#}
+
+3.empty:集合为空时的处理？
+# 此时names=[] 集合对象不能时null,但可以空集合
+<ul>
+    {% for name in names %}
+        <li>{{ name }}</li>
+        {% empty %}
+        <li>空</li>
+    {% endfor %}
+</ul>
+
+
+4.{% cycle "even" "" %} 轮询的方式选择后面的字符串
+   <tr class="{% cycle "even" "" %}">
+            <td>{{ user.id }}</td>
+            <td>{{ user.name }}</td>
+            <td>{{ user.realprofile.real_name }}</td>
+            <td>{{ user.phone }}</td>
+        </tr>
+
+if
+条件表达式支持关系运算符
+or and not in == != < > >= <= 注意关系运算符左右2边要使用空格分开
+1. if expression:
+    {% if 表达式 %}
+    {% endif %} # 表达式必须关闭
+
+2. if_else:
+{% if 表达式 %}
+    语句
+{% else %}
+    语句
+{% endif %}
+
+3. if-elif-else
+{% if 表达式 %}
+    语句
+{% elif 表达式 %}
+    语句
+{% else 表达式 %}
+    语句
+{% endif %}
+
+注释
+单行注释： {# 被注释的内容 #}
+
+多行注释：
+{% comment %}
+    内容
+{% endcomment %}
+
+4. ifequal:如果相等
+{% ifequal value1 value2 %}
+    语句
+{% endifequal %}
+
+5. ifnotequal:如果不相等
+
+-------------------------------
+过滤器
+1.算术运算
+1.1 加减
+加：add 比如：{{ store.years|add:5 }}
+减：通过加上负数的形式实现减法 比如：{{ store.years|add:-2 }}
+
+1.2 乘除
+{% widthratio 变量 分母 分子 %}
+如：{% widthratio price 10 1 %} 表示price的十分之一
+
+1.3 整除
+{% if num|divisibleby:2 %}
+如：{% ifequal forloop.counter|divisibleby:2 0 %}
+
+2.字符串操作
+2.1 lower : {{ p.pname|lower }} 转小写
+2.2 upper : {{ p.pname|upper }} 转大写
+2.3 capfirst : {{ value | capfirst }} value的第一个字符转化成大写形式
+2.4 cut : {{ value | cut:arg }} 从给定的value中删除所有的arg的值
+2.5 join : 同python的join相同，对iterable进行连接
+    如： {{ store.phone|join:'-'}}
+        {{ stores.values|join:','|escape}} # escape保留原始字符
+        可以在某一区域开启escape 如{%autoescape on/off%}
+                                {%endautoescape%}
+
+3.default默认值
+如果变量没有被提供或者为False，空 ，会使用默认值
+格式：{{ var|default:value}}
+如 {{ store.address|default:'无'}}
+
+4.日期时间
+根据指定格式转换日期为字符串
+格式：{{ dateVal | date:'Y-m-d H:i:s a'}}
+
+5.HTML转移
+将接收到的数据当成普通的字符串处理还是当成HTMl代码来渲染的一个问题
+
+1.渲染成html
+{{code|safe}} 不转义
+
+{% autoescape off %}
+    code
+{% endautoescape %}
+
+2.不渲染
+{{code|escape}} 转义
+
+{% autoescape on %}
+    code
+{% endautoescape %}
+
+3.注意：开发中尽量保持纯文本，如果进行html渲染，可能会被恶意注入
+
+6.其他
+文件大小格式化:
+file_size|filesizeformat
+
+dictsort:
+{{ value | dictsort:"name" }}
+如果value的值是一个字典，那么返回值是按照关键字排序的结果
+
+dictsortreversed 和dictsort按照关键字排序的结果的反序
+
+first:
+ {{ value|first}}  返回列表中第一个item
+
+last:
+和 first相反
+
+length：
+{{ value|length}}  返回value的长度
+
+小数格式化：
+floatformat
+{{ value|floatformat }}或{{ value|floatformat:arg }}
+如1：
+34.23234 {{ value|floatformat }} 34.2
+34.00000 {{ value|floatformat }} 34
+34.26000 {{ value|floatformat }} 34.3
+
+如2：
+34.23234 {{ value|floatformat:3 }} 34.232
+34.00000 {{ value|floatformat:3 }} 34.000
+34.26000 {{ value|floatformat:3 }} 34.260
+
+自定义过滤器：
+可以在init.py的脚本中填写
+from django.template.defaultfilters import register
+
+@register.filter('ellipse')
+def ellipse(value):
+    return value[0:3]
+
+<p>
+    {% for path,f_stat in files.items %}
+        {{ path|ellipse }} 的文件大小是 {{ f_stat.st_size|filesizeformat }}<br>
+    {% endfor %}
+</p>
+-------------------------------------------------------------------
+CSRF
+作用：防止跨站请求伪造
+某些恶意网站包含链接js利用用户登录在浏览器中的认证信息，进行非法操作
+
+token：一种口令，通常被用于验证身份
+生成规则：
+保证生成的用户是唯一的：例如：用户的唯一，拼接时间戳
+
+1.1{% csrf_token %}
+在模板的<form>内部使用，如果无效，可以在对应的视图函数中添加如下操作
+
+from django.views.decorators.csrf import csrf_exempt
+
+@csrf_exempt
+def login(request: HttpRequest):
+    return render(request, 'user/login.html')
+
+【注意】只针对post请求
+扩展1：make_password和check_password
+扩展2：request.session
+
+1.2 取消csrf
+1.在setting.py的中间件的配置中，将CsrfViewMiddleware删除
+2.如下
+@csrf_exempt
+def login(request: HttpRequest):
+    return render(request, 'user/login.html')
+
+二,模板布局标签
+2.1 block/extends/include
+
+2.2显示父模板的内容
+{{ block.super }}
+
+三，app模块内部模板
+每个app下都可以由自己的模板文件templates存放自己的模板
+内部的模板templates目录不需要在settings里面配置
+如果app模块之外存在templates目录，且在settings.py中已经设置，则加载模板时，
+优先从此目录中加载模板文件
+
+四，URL路由配置
+URL分二级(总路由和子路由(app模块的路由))
+1.主工程目录下的urls.py
+urlpatterns = [
+    path('url',视图函数,name=None)
+    path('url/',include('app_label.urls', namespace=None))
+]
+
+2.app目录下的urls.py
+urlpatterns = [
+    path('url', 视图函数, name=None),
+]
+include的namespace和path的name都在反向解析中使用，即反向获取url路径，
+'namespace.name'
+
+4.2 url和path两种路由的配置
+url()配置兼容Django1.x的老版本
+path()是django2.0之后的路由函数
+
+from django.urls import path
+from django.conf.urls import url
+
+from orderapp.views import order_list
+
+urlpatterns = [
+    path('list', order_list),
+    url(r'^list2/(\w+)$', order_list)
+]
+
+url()支持正则，通过正则在url路径中传参(关键参数传参和位置传参都可以)
+    url(r'^list2/(?P<city_code>\w+)/(?P<order_num>\d+)$', order_list)
+
+def order_list(request, order_num,city_code):
+    print(order_num,city_code)
+    return render(request, 'list_order.html', locals())
+
+以上的url路由传参也可以使用path()的<name>来实现
+    path('list/<city_code>/<order_num>', order_list)
+
+如果路由中的参数是uuid类型，则使用参数转换器进行匹配,如
+    path('cancel/<uuid:order_num>', views.cancel_order)
+
+除了uuid之外，还有str,int,slug.如果路由中的参数的规则较复杂，建议使用re_path()配置路由中的参数
+    re_path(r'^search/(?P<phone>1[3-57-9][\d]{9})$',views.search_p)
+
+def search_p(request, phone):
+    return HttpResponse(phone)
+
+-------------------------------------------------------------------
+五，反向解析
+5.1 使用include的namespace和path的name属性
+【注意】
+主路由：
+path('order/', include('orderapp.urls', namespace='orderapp')
+
+
+子路由：
+如果主路由指定了namespace的命名空间
+app_name = 'orderapp'
+
+urlpatterns = [
+    path('list/<city_code>/<order_num>', views.order_list, name='list'),
+    path('cancel/<uuid:order_num>', views.cancel_order, name='cancel'),
+    re_path(r'^search/(?P<phone>1[3-57-9][\d]{9})$',views.search_p, name='search'),
+    # url(r'^list2/(?P<city_code>\w+)/(?P<order_num>\d+)$', views.order_list)
+]
+
+【注意】
+如果主路由指定了namespace的命名空间，则子路由的脚本必须声明"app_name"属性，属性一般是模块名
+app_name = 'orderapp'
+
+5.2 在网页中获取路径
+在网页中使用{% url 'namespace或app_name:name' % 参数}
+
+ <a href="{% url 'order:list' 'xa' 1001 %}">订单</a>
+
+参数可以是多个，每个参数用空格分开
+参数默认位置传参，也可以关键参数传参
+<a href="{% url 'orderapp:list' order_num=1001 city_code=1001 %}">订单</a>
+
+5.3 在视图函数中获取路径
+在视图函数中使用，reverse()函数来反向获取ul请求路径，再通过redirect或
+RedirectHttpResponse()来重定向
+
+def query(request):
+args位置传参
+    url = reverse('order:search', args=('17791306788',))
+    return redirect(url)
+kwargs关键参数传参:
+    url = reverse('order:list', kwargs=dict(city_code='shanghai', order_num=1001))
+    return HttpResponseRedirect(url)
+
+redirect()和HttpResponseRedirect()一样的
+
+六，自定义error视图模板
+常见的错误响应状态码：403，400，404，405：请求方法不允许 500：(服务器异常)
+
+7.验证器
+7.1 validators 验证模型字段
+models.py文件中使用限制手机格式
+
+from django.core.exceptions import validator
+
+class UserValidator:
+    @classmethod
+    def valid_phone(cls,value):
+        if not re.match(r'1[1-57-9]\d{9}', value):
+            raise ValidationError('手机格式不正确')
+        return True
+
+phone = models.CharField(max_length=11,
+                             verbose_name='手机号',
+                             validators=[UserValidator.valid_phone],
+                             blank=True,  # 表示站点的表单字段值可以为空
+                             null=True)  # 表示数据表的字段可以是null
+
+
+7.2 QuerySet的bulk_create([])批量创建
+c1 = CateTypeEntity()
+c1.order_num = 10
+c1.name = '提神养颜'
+c2 = CateTypeEntity()
+c2.name = '补精益气'
+c2.order_num = 20
+CateTypeEntity.objects.bulk_create([c1,c2])
+[<CateTypeEntity: 提神养颜>, <CateTypeEntity: 补精益气>]
+
+7.3 QuerySet.values()或values_list()返回指定字段
+UserEntity.objects.values('id','name')
+<QuerySet [{'id': 1, 'name': '李元霸'}, {'id': 2, 'name': 'jack'}, {'id': 3, 'name': '李元杰'}, {'id': 4, 'name': '李逍遥'}]>
+
+7.4 request请求对象的属性
+GET/POST/COOKIES/FILES都是QueryDict类，QueryDict自动进行url的中文编码处理
+
+第二周：
+----------------------------------------------------------------
+一，请求与响应详解
+1.1 request对象
+----------------------------------------------------------------
+扩展：mysql连接配置
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'advance1',
+        'HOST': '116.62.193.152',
+        'PORT': 3306,
+        'USER': 'root',
+        'PASSWORD': '123456',
+        'CHARSET': 'utf8'
+    }
+}
+默认情况下需要安装mysqlclient，我们也可以安装pymysql，但是需要在主工程目录下的__init__.py文件中以下操作：
+import pymysql
+
+pymysql.install_as_MySQLdb()
+------------------------------------------------------------
+请求对象类：django.http.HttpRequest
+视图函数的第一个参数request
+请求是由Django框架生成的
+
+属性：
+path ：请求的完整路径
+method：get,post,put,delete 必须大写
+encoding：编码方式，常用utf—8
+content_type:请求体数据类型
+body：请求体数据，字节类型
+GET：查询字典对象QuerySet，包含get请求的所有参数
+POST：查询字典对象，包含了POST请求的所有表单参数
+FILES：上传的文件，(类)字典结构
+COOKIES：字典，包含了所有COOKIE
+session：字典，表示会话
+META:客户端的元数据 (REMOTE_ADDR)客户端IP地址
+
+1.1.2 请求对象中的QueryDict属性
+GET 查询参数
+
+POST 表单参数，包含post/put两个请求方法的参数
+
+COOKIES 客户端中的当前domain的所有的Cookie信息
+
+META WSGI的请求元信息(服务器环境信息，客户端请求信息) == environ
+    REMOTE_ADDR 客户端IP地址
+    PATH_INFO 请求路径
+    REQUEST_METHOD 请求方法
+    QUERY_STRING 查询参数
+    CONTENT_TYPE
+
+FILES 上传的表单参数中的所有的文件对象,MultiValueDict类对象
+    文件类型为：InMemoryUploadedFile
+
+session 会话中存储的数据(可以跨多个请求)
+
+1.1.3请求对象中的普通信息
+path 请求路径
+method 请求方法，GET/POST/DELETE/PUT
+content_type 数据类型，如请求头的Content-Type:text/html;charset=utf-8
+    content_type只接收数据类型text.html。charset=utf-8的部分编码则由encoding存储
+encoding 编码
+body 字节码数据，一般接收上传的json数据,put上传的数据可以使用body获取
+----------------------------------------------------------------------------------------
+<p>
+    <form method="post" enctype="application/x-www-form-urlencoded">
+    <input name="name" placeholder="username"><br>
+    <input name="phone" placeholder="phone"><br>
+    <input type="password" name="password" placeholder="password"><br>
+    <input type="date" placeholder="生日">
+    <button>提交</button>
+</form>
+</p>
+<p>
+    <button onclick="up_ajax()">ajax上传json数据</button>
+    <script>
+        function up_ajax() {
+            data = {
+                name:document.forms[0].name.value,
+                phone: document.forms[0].name.value
+            }
+            fetch('',{
+                method: 'POST',
+                body: JSON.stringify(data),
+                headers:{
+                    'Content-Type': 'application/json;charset=utf-8'
+                }
+            }).then(response => response.text())
+            .then(text => {
+                document.write(text)
+            })
+        }
+    </script>
+</p>
+<p>
+    请求路径:{{ request.path }}<br>
+    请求的URI(统一资源标识符)：{{ request.get_raw_uri }}
+    <pre>
+    URL:统一资源定位符，资源的网络地址
+    URI:统一资源表示符，用于RESTful规范中，可以理解为URL
+    </pre>
+</p>
+<p>
+    请求方法：{{ request.method }}<br>
+    content_type:{{ request.content_type }}<br>
+    encoding:{{ request.encoding }}<br>
+    content_params:{{ request.content_params }}
+</p>
+<p>
+    body:{{ request.body }}
+</p>
+----------------------------------------------------------------------------------
+1.2 response对象
+响应对象是视图函数返回的对象。由我们自己创建，当然，django很多快捷键方法，如
+render()/redirect()快速生成response响应对象
+常用的响应类：
+HttpResponse
+HttpResponseRedirect
+JsonResponse
+TemplateResponse
+
+响应对象中包含的属性：
+content 响应的内容
+    如果HttpResponse对象，则content可以是字节码也可以是字符串
+    jsonResponse对象，则content可以是字典
+status 响应的状态码
+content_type 响应的数据类型
+charset 编码格式
+
+响应方法：
+init() 初始化内容
+write() 直接写出文本
+flush() 冲刷缓冲区
+
+二，会话技术详解
+一次会话(Session)或连接从浏览器的一个Request开始，到服务器返回Response结束。可以在多个页面需要传递部分数据
+多个页面需要将传输的部分数据，将想要传递的数据储存带一个指定的位置，另外的页面去该指定位置读取
+
+2.1 Cookie
+将数据储存到浏览器中 字典结构
+HttpResponse.set_cookie()参数如下：
+set_cookie(key,value,path='/',domain=None,max_age=None,expires=None)
+key
+value
+max-age :
+    有效时长，单位为秒
+    指定为0，表示关闭浏览器失效（默认）
+    指定为欸有效值100：100秒后自动失效
+    未指定，表示永久
+    Django1.11默认的Cookie最长时间是2周
+expires
+    除了支持max-age外，还可以指定时间节点，可以使用datetime.datetime对象
+    datetime.now()+timedelta(days=3) 表示3天有效时间
+
+HttpRequest.COOKIES.get('username')
+HttpResponse.delete_cookie('username')
+cookie不支持中文
+不能跨浏览器，不能跨域名(跨域请求的同源:协议相同，域相同，端口相同)
+    CORS解决跨域请求方案
+
+2.2 Session
+def new_code(request):
+    # 生成手机验证码
+    # 随机产生验证码：大小写字母+数字
+
+    all_char = '0123456789qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM'
+    index = len(all_char) + 1
+    code = ''
+    for i in range(4):
+        code_txt = random.randint(0, index)
+        code += all_char[code_txt]
+
+    phone = request.GET.get('phone')
+    # 保存到session中,session信息存在mysql中
+    request.session['code'] = code
+    request.session['phone'] = phone
+
+    # 向手机发送验证码：华为云：短信服务
+    return HttpResponse('已经向%s手机发送了验证码！验证码为:%s' % (phone, code))
+
+清除所有session的方法是什么
+request.session.clear()
+--------------------------------------------------------------------------------------
+
+一，验证码
+1.1验证码方式
+图片验证码
+滑动验证码
+短信验证码
+邮箱验证码
+
+1.2验证码使用场景
+防止爬虫程序
+防止非人为操作
+------------------------------------------------------------
+1.3基于PIL库实现图片验证码
+验证码生成脚本：
+import random
+
+
+def random_str(start, end):
+    return chr(random.randint(start, end))
+
+
+def new_code_str(len):
+    code_str = ''
+    for _ in range(len):
+        flag = random.randint(0, 2)
+        start, end = (ord('a'), ord('z')) if flag == 1 \
+            else (ord('A'), ord('Z')) if flag == 2 \
+            else (ord('0'), ord('9'))
+
+        code_str += random_str(start, end)
+
+    return code_str
+
+
+if __name__ == '__main__':
+    print(new_code_str(4))
+---------------------------------------------
+图形验证码初步使用
+from PIL import Image, ImageDraw, ImageFont
+
+from common.code import new_code_str
+
+def new_img_code(request):
+
+    # 创建一个画布
+    img = Image.new('RGB',(80,40),(100,100,0))
+
+    # 从画布中获取画笔
+    draw = ImageDraw.Draw(img,'RGB')
+
+    # 创建字体对象和字体颜色
+    font_color = (0,20,100)
+    font = ImageFont.truetype(font='static/fonts/YuGothB.ttc',size=20)
+
+    # 通过自写脚本生成验证码
+    valid_code = new_code_str(6)
+    request.session['code'] = valid_code
+
+    # 开始画内容
+    draw.text((5,5), new_code_str(6), font=font, fill=font_color)
+    # draw.line((0,0),(255,0,0),20)
+
+    for _ in range(100):
+        x = random.randint(0,80)
+        y = random.randint(0,40)
+
+        r = random.randint(0,255)
+        g = random.randint(0,255)
+        b = random.randint(0,255)
+        draw.point((x,y),(r,g,b))
+
+    # 将画布写入内存字节数组中
+    from io import BytesIO
+    buffer = BytesIO()
+    img.save(buffer,'png')  # 写入
+
+    return HttpResponse(content=buffer.getvalue(),
+                        content_type='image/png')
+-----------------------------------------------------------------
+二，分页器Paginator
+
+from django.core.paginator import Paginator
+---------------------------------------------------------------
+视图函数
+def order_list(request):
+    wd = request.GET.get('wd','')
+    page = request.GET.get('page',1)
+    orders = Order.objects.filter(Q(title__icontains=wd)).all()
+
+    # 分页器Paginator
+    paginator = Paginator(orders,3)
+    pager = paginator.page(page)  # 查询第几页
+    return render(request, 'list.html', locals())
+--------------------------------------------------------------
+模板
+<p style="text-align: center">
+<tfoot>
+<tr>
+    <td colspan="4">
+        <a {% if pager.has_previous %} href="?page={{ pager.previous_page_number }}&wd={{ wd }} {% endif %}">&lt;</a>
+        {% for p in paginator.page_range %}
+            {% if pager.number == p %}
+            <a class="page active">{{ p }}</a>
+            {% else %}
+            <a class="page" href="?page={{ p }}&wd={{ wd }}">{{ p }}</a>
+            {% endif %}
+        {% endfor %}
+        <a {% if pager.has_next %} href="?page={{ pager.next_page_number }}&wd={{ wd }}{% endif %}">&gt;</a>
+    </td>
+</tr>
+</tfoot>
+</p>
+----------------------------------------------------------------
+三，类视图CBV
+3.1概念
+Django中视图(View)写法有2中：
+1. FBV(Function-based-View) 基于函数的视图，之前都是使用FBV模式
+2. CBV(class-based View) 基于类的视图，应用面向对象(OOB)设计思想，通过继承，重写等相关特性
+    实现业务功能。
+
+3.2Django提供很多的View
+
+View
+class StockView(View):
+    @csrf_exempt
+    def dispatch(self, request, *args, **kwargs):
+        return super().dispatch(request,*args,**kwargs)
+
+    def get(self, request):
+        return render(request, 'stock/list.html', locals())
+
+    def post(self, request):
+        return HttpResponse('Post请求')
+
+    def put(self, request):
+        return HttpResponse('put请求')
+
+    def delete(self, request):
+        return HttpResponse('delet请求')
+
+
+TemplateView
+class GoodsView(TemplateView):
+    template_name = 'goods/list.html'
+
+    extra_context = {'msg': '我是扩展的消息'}
+
+    def get_context_data(self, **kwargs):
+        # 渲染模板之前，提供上下文数据
+        context = super(GoodsView, self).get_context_data(**kwargs)
+        wd = context.get('wd','')
+
+        datas = ['iphone 6','iphone 8', 'iphone x'] if wd == 'iphone'\
+            else ['Vivo','huawei']
+
+        context['datas'] = datas
+        context['msg'] = '查询成功%s' % (datetime.now())
+        return context
+
+RedirectView
+class QueryView(RedirectView):
+    # 重定向的视图函数名
+    pattern_name = 'stockapp:goods'
+
+    # 需要拼接参数的话
+    query_string = True
+
+    def get_redirect_url(self, *args, **kwargs):
+
+        return super(QueryView, self).get_redirect_url(*args,**kwargs)
+
+
+ListView
+
+EditView
+FormView
+DetailView
+DeleteView
+
+中间件：
+4.1中间件基于AOP(面向切面编程)设计思想，目前扩展业务功能，即不修改元业务基础之上
+    增加新的功能。类似于装饰器。中间件有很多使用场景:权限验证，限制ip(黑名单)，限制
+    请求次数，跨域请求，访问日志/统计,记录错误信息
+
+Django的中间价有五个钩子函数：【重要】
+    process_request(request)从django框架到urls路由过程
+    process_view(request,callback,callback_args,callback_kwargs)从urls路由到view视图函数的过程
+    process_template_response()在view视图函数中渲染模板的过程(不常用)
+    process_exception(request,exception)从请求到响应的整个过程，如果发生了异常则被此函数处理
+    process_response(request,response)从视图函数中向Django响应数据时，即返回HttpResponse()对象后
+
+4.2自定义中间件
+中间件的基本类:django.utils.deprecation.MiddlewareMixin
+在项目的目录下，创建middleware包和check_login.py脚本，内容如下：
+from django.utils.deprecation import MiddlewareMixin
+from django.http import HttpResponse
+
+
+class CheckLoginMiddleware(MiddlewareMixin):
+    def process_request(self, request):
+        # 从请求到路由urls过程，触发此函数
+        print('--CheckLoginMiddleware--', 'process_request')
+        print(request.path,
+              request.COOKIES)
+
+        # 验证用户是否登录
+        dontfilters = ['/user/login/','/user/code/']
+        if request.path not in dontfilters:
+            if not request.COOKIES.get('token'):
+                return HttpResponse('请登录')
+
+    def process_view(self, request,callback,callback_args,callback_kwargs):
+        print('--CheckLoginMiddleware--', 'process_view')
+        # callback 是调用的view函数
+        # 新增一个关键参数，类似与匹配路由stock/<stock_id>/<page>/
+        # callback_kwargs['page'] = request.GET.get('page',1)
+        print(callback,callback_args,callback_kwargs)
+
+    def process_exception(self,request,exception):
+        print('--CheckLoginMiddleware--','process_exception')
+        print(exception,type(exception))
+        if isinstance(exception,ContextError):
+            return HttpResponse('Context中处理中出现异常:%s' % exception)
+        else:
+            return HttpResponse('登录的过程中出现异常：%s' % exception)
+
+    def process_response(self, request, response):
+        print('--CheckLoginMiddleware--', 'process_response')
+        return response
+
+在settings.py的注册中间件类
+MIDDLEWARE = [
+    '...',
+    'middleware.check_login.CheckLoginMiddleware',
+]
+----------------------------------------------------------------
+
+五.Django日志
+5.1 Django日志的组成部分
+日志的版本号version
+日志的格式化formatters
+日志的处理器handlers
+日志的记录器loggers,默认存在"django","django.request"
+日志的过滤器filters
+5.1 配置日志
+在settings.py脚本中配置：
+LOGGING = {
+    'version': 1.0,  # 版本
+    'formatters': {
+        'base': {
+            'format': '[%(asctime)s %(name)s] %(message)s',
+            'datefmt': '%Y-%m-%d %H:%M:%S'
+        }
+    },
+    'handlers': {
+        'out': {
+            'class': 'logging.StreamHandler',
+            'level': 'INFO',
+            'formatter': 'base'
+        },
+        'file': {
+            'class': 'logging.FileHandler',
+            'level': 'WARNING',
+            'formatter': 'base',
+            'filename': f'{BASE_DIR}/warn.log'
+        }
+    },
+    'loggers': {
+        'django.server': {   #django.server日志记录器的名称
+            'handlers': ['out', 'file'],
+            'level': 'CRITICAL',
+            'propagate': False
+        },
+        'mylogger': {  # mylogger 也是日志记录器的名称
+            'handlers': ['out', 'file'],
+            'level': 'INFO',
+            'propagate': False
+        },
+    }
+}
+
+5.3 使用日志
+
+import logging
+
+logging.getLogger('mylogger').error(msg)
+
+
+6 缓存Cache：
+目的:优化数据结构，减少对磁盘的IO
+官方文档：https://docs.djangoproject.com/zh-hans/2.2/topics/cache/
+
+6.1:配置缓存
+6.1.1 文件缓存
+settings.py文件
+
+CACHES = {
+    'default':{
+        'BACKEND':'django.core.cache.backends.filebased.FileBasedCache',
+        'LOCATION': f'{BASE_DIR}/mycache',
+        'TIMEOUT': 300,
+        'OPTIONS': {
+            'MAX_ENTRIES': 500,
+            'CULL_FREQUENCY': 3
+        }
+    }
+}
+
+6.2使用缓存
+6.2.1 文件缓存的使用
+导包
+from django.core.cache import cache
+
+增加
+cache.set(key,value,timeout)
+cache.add(key,value,timeout,version)
+
+读取
+cache.has_key(key)
+value = cache.get(key)
+
+删除
+cache.delete(key)
+----------------------------------------------
+缓存进阶：
+1.1页面缓存:
+settings设置：
+
+ 'html':{
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake'
+    }
+------------------------------------------------------
+@cache_page方案:
+
+from django.views.decorators.cache import cache_page
+
+@cache_page(timeout=10, cache='html', key_prefix='page')
+def list(request):
+    # 验证是否登录
+    # if request.COOKIES.get('token'):
+    #     return HttpResponse('正在跳转到主页')
+    chrs = string.ascii_letters
+    num = random.choice(chrs)
+    return HttpResponse('用户列表页面:<br> %s' % num)
+--------------------------------------------
+cache.set/add()保存html 方案：
+在中间件的process_request和process_response两个钩子函数中实现
+
+class CachePageMiddleware(MiddlewareMixin):
+    # 配置缓存的页面路径
+    cache_page_path = [
+        '/user/list/'
+    ]
+
+    def process_request(self, request):
+        # 判断当前的请求是否支持缓存
+        if request.path in self.cache_page_path:
+            # 判断页面是否已经缓存了
+            if cache.has_key(request.path):
+                return HttpResponse(cache.get(request.path))
+
+    def process_response(self, request, response):
+        # 判断当前的请求路径是否要被缓存
+        if request.path in self.cache_page_path:
+            # 开始缓存
+            cache.set(request.path,
+                      response.content, timeout=5)
+
+        return response
+
+1.2 redis缓存
+官网：http://django-redis-chs.readthedocs.io/zh_CN/latest/
+redis操作文档： http://redisdoc.com
+
+pip install django-redis
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': 'redis://116.62.193.152:6379/10',
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            'SOCKET_CONNECT_TIMEOUT': 10,
+            'SOCKET_TIMEOUT': 10,
+            'PASSWORD': '123456'
+        }
+    }
+}
+
+1.3 session缓存
+SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
+SESSION_COOKIE_NAME = 'SESSION_ID'
+SESSION_COOKIES_PATH = '/'
+SESSION_CACHE_ALIAS = 'default'
+SESSION_COOKIE_AGE = 1209600  # 2周有效时间
+
+二，Django信号机制
+2.1说明：
+Django中提供"信号调度"机制，用于监听框架中执行的执行的某些操作，实现业务与模型或视图之间的解耦
+Django中某些动作发生的时候，系统会根据信号定义的函数执行相应的操作
+
+1. 模型操作的信号
+pre_init    model对象执行其构造方法前，自动触发
+post_init   model对象执行其构造方法后，自动触发
+pre_save    model对象保存前，自动触发
+post_save   model对象保存后自动触发
+pre_delete  model对象删除前自动触发
+post_delete model对象删除后自动触发
+m2m_changed model对象使用ManytoMany字段操作数据库的第三张(add/remove)自动触发
+class_prepared 程序启动时，检查到已注册的model类，对于每一个类，自动触发
+
+具体操作如下在app中的__init__.py脚本中
+-----------------------------------------------------------------
+import pymysqlfrom django.db.models.signals import pre_delete, post_delete, pre_save, post_save
+from django.dispatch import receiver
+
+# 定义一个模型操作类删除前的信号
+def model_delete_pre(sender, **kwargs):
+    from user.models import Order
+    # sender 表示 哪一个Model的对象将要被删除 信号发送者
+    # kwargs 表示信号的基本信息，信号发送时，传递的一些信息
+    # print(sender)   # models.Model的子类
+    # print(kwargs)   # key:signal,instance,using
+    info = 'Prepare.Delete %s 类的 id=%s,title=%s'
+    # print(issubclass(sender, Order))  # True
+    # print(isinstance(sender,Order))  # False
+    # print(sender is Order)  # True
+    # print(sender == Order)  # True
+    if sender == Order:
+        print(info % ('订单模型',
+                      kwargs.get('instance').id,
+                      kwargs.get('instance').title))
+
+
+@receiver(post_delete)
+def dele_model_post(sender, **kwargs):
+    print(sender, '删除成功', kwargs)
+
+
+# 连接信号
+pre_delete.connect(model_delete_pre)
+
+
+# post_delete.connect(dele_model_post)
+
+
+def pre_save_model(sender, **kwargs):
+    from user.models import Order
+    info = ' 正在增加Order模型类的信息 id=%s,title=%s'
+    if sender == Order:
+        print(info % (kwargs.get('instance').id,
+                      kwargs.get('instance').title))
+
+
+def post_save_model(sender,**kwargs):
+    print(sender,'添加成功',kwargs)
+
+
+pre_save.connect(pre_save_model)
+post_save.connect(post_save_model)
+
+------------------------------------------------------
+其他信号：
+迁移 django.db.models.signals
+请求响应 django.core.signals
+配制文件 django.core.signals
+渲染模板 django.test.signals
+数据库 django.db.backends.signals
+
+-------------------------------------------
+自定义信号
+1.创建一个signals包
+在__init__.py脚本中定义一个信号：
+
+from django import dispatch
+
+# 定义信号
+codeSignal = dispatch.Signal(providing_args=['path',
+                                             'phone',
+                                             'code'])
+
+
+2，在要操作的具体view函数中发送信号，这里选择new_code函数：
+def new_code(request):
+
+    from common import code
+    code = code.new_code_str(4)
+
+    phone = request.GET.get('phone', '')
+
+    # 发送信号
+    # sender 名字跨域根据需求设定
+    # 关键参数列表，根据信号定义的参数列表传值
+    signals.codeSignal.send('new_code',
+                            path=request.path,
+                            phone=phone,
+                            code=code)
+
+    # 保存到session中,session信息存在mysql中
+    request.session['code'] = code
+    request.session['phone'] = phone
+
+    # 将验证码存到cache
+    # timeout是缓存的时间
+    cache.set(phone, code,timeout=60)
+
+    # 向手机发送验证码：华为云：短信服务
+    return HttpResponse('已经向%s手机发送了验证码！验证码为:%s' % (phone, code))
+
+3，接收信号
+在views同目录下的__init__.py脚本中：
+
+from signals import codeSignal
+from django import dispatch
+
+# 接信号
+@dispatch.receiver(codeSignal)
+def cache_code(sender, **kwargs):
+    print('dispatch.receiver<cache_code>')
+    print(sender, kwargs)
+
+--------------------------------------------------------
+
+三，高并发解决方案Celery+Redis队列
+3.1 概念
+Celery是一个基于python开发的分布式异步消息的任务队列
+Celery解决C10K问题，通过消息中间件和后台的任务执行单元解决高并发问题
+Celery的组成部分：
+    1.消息中间件Broken,Celery本身并没有实现功能，只是一种接口或规范。在Celery时
+    必须指定消息中间件实现方案(Redis发布/订阅，RabbitMQ)
+    2.任务执行单元Worker,后台进程
+    3.任务执行单元的结果存储Result
+worker部分负责任务的处理，broker部分负责消息的分发以及任务结束的存储，Celery主类，进行任务最开始的指派与执行控制
+
+3.1应用
+1.安装包：pip install django-celery django-redis flower
+
+3.2配置
+文档：http://docs.celeryproject.org/en/latest/django/index.html
+
+注意：window在celery4.0之后，不支持多进程方式，更换协程方式(eventlet,gevent)
+安装库
+pip install celery==4.4.0rc3 eventlet
+
+在主项目的工程文件目录下，创建celery.py,内容：
+from __feture__ import absolute_path, unicode_literals
+from celery import Celery
+import os
+
+os.environ.setdefault('DJANGO_SETTINGS_MODULE','advanceDjango.settings')
+
+app = Celery('advanceDjango', broker='redis://116.62.193.152:6379/8',backend='redis://:123456@116.62.193.152:6379/9')
+app.config_from_object('django.conf:settings') # 配值Celery,加载settings.py
+
+app.autodiscover_tasks() # 自动发现task任务
+-----------------------------------------
+在该项目的init.py脚本中增加all属性
+from __future__ import absolute_import, unicode_literals
+from .celery import app as celery_app
+
+# 向项目模块中增加celery_app对象
+__all__ = ('celery_app',)
+--------------------------------------------
+在app应用模块中，创建tasks.py文件
+from celery import shared_task
+@shared_task
+def qbuy(goods_id,user_id):
+    print('%s Qbuying %s' % (goods_id,user_id))
+    return '%s OK %s' % (goods_id,user_id)
+------------------------------------------------
+在主项目的settings.py文件中，配置Celery的选项
+CELERY_IMPORTS = ('stockapp.tasks',)
+
+启动Celery
+> celery -A advanceDjango worker -P eventlet -l info
+-p 指定执行单元的实现方式，指定eventlet表示以协程方式实现后台单元的异步操作。
+调用异步任务，@shared_task修改的任务函数
+qbuy.delay('10009',2)
+如果Celery服务接收任务，并执行，跨域看到执行结果
+
+安装打印结果插件：
+pip install django-celery-results
+
+在settings.py文件中，配置result存储方案
+INSTALLED_APPS = [
+    '...',
+    'django_celery_results',
+]
+
+CELERY_RESULT_BACKEND = 'django-db'
+# CELERY_CACHE_BACKEND = 'django-cache' # 缓存信息
+
+迁移Celery结果相关的库
+python manage.py migrate django_celery_result
+
+迁移成功之后启动celery
+
+在python控制台使用
+from stockapp.tasks import qbuy
+
+qbuy.delay('10009',2)
+
+qbuy.result
+
+
+一：基于Celery和redis的抢购方案：
+1.1 业务描述
+实现抢购活动开始后，每位用户每天只限抢购一件商品。
+活动信息：图片，标题，商品，价格折扣，开始和结束时间
+另外：每天限量 5
+
+1.2 设计模型类
+class Goods(models.Model):
+    # 商品名称
+    # 单价
+    # 描述
+    # 图片
+    pass
+
+class User(models.Model):
+    # 登录名
+    # 口令
+    pass
+
+class Active(models.Model):
+    # 名称
+    # 图片
+    # 开始时间
+    # 结束时间
+
+class ActiveGoodsModel(models.Model):
+    # 活动ID - Foreignkey(ActiveModel)
+    # 商品ID - Foreignkey(Goods,related_name=)
+    # 折扣 rate   小数
+    pass
+
+# 增加订单和订单详情模型
+
+
+
+三，Django-RESTFUL框架入门
+文档：https://www.django-rest-framework.org/
+https://q1mi.github.io/Django-REST-framework-documentation/
+
+3.1概念
+    REST即表述性状态传递，是Roy Fielding博士在2000年他的博士论文中提出的一种软件架构风格
+    ，它是一种针对网络应用的设计和开发方式，可以降低开发的复杂性，提高系统的可伸缩性
+
+    RESTful API四大基本原则
+    1.为每个资源这是URL
+    2.通过XML JSON进行数据传递
+    3.无状态，服务器端不应保存过多上下文状态，即每个请求都是独立的
+    4.使用HTTP动词：GET POST PUT DELETE
+
+3.2 基本使用
+pip install djangorestframework
+pip install markdown       # 为browsable API 提供Markdown支持。
+pip install django-filter  # Filtering支持。
+-------------------------------------------------
+1.在INSTALLED_APPS中添加 'rest_framework' 项。
+
+INSTALLED_APPS = [
+    ...
+    'rest_framework',
+]
+--------------------------------------------------
+2.把下面的代码添加到你根目录的urls.py文件。
+
+urlpatterns = [
+    ...
+    path('api-auth/', include('rest_framework.urls'))
+]
+----------------------------------------------------------
+3.首先把下面的内容添加到你的settings.py模块中：
+
+REST_FRAMEWORK = {
+    # Use Django's standard `django.contrib.auth` permissions,
+    # or allow read-only access for unauthenticated users.
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly'
+    ]
+}
+---------------------------------------------------------------
+4.
+from django.urls import path, include
+from django.contrib.auth.models import User
+from rest_framework import routers, serializers, viewsets
+
+# 序列化器是用来定义API的表示形式。
+class UserSerializer(serializers.HyperlinkedModelSerializer):
+    class Meta:
+        model = User
+        fields = ['url', 'username', 'email', 'is_staff']
+
+# ViewSets定义视图的行为。
+class UserViewSet(viewsets.ModelViewSet):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+
+# 路由器提供一个简单自动的方法来决定URL的配置。
+router = routers.DefaultRouter()
+router.register(r'users', UserViewSet)
+
+# 通过URL自动路由来给我们的API布局。
+# 此外，我们还要把登录的URL包含进来。
+urlpatterns = [
+    path('', include(router.urls)),
+    path('api-auth/', include('rest_framework.urls', namespace='rest_framework'))
+]
+现在你可以在浏览器中打开http://127.0.0.1:8000/，查看你的'user' API了。如果你用了右上角的登录控制，那你还可以在系统中添加、创建并删除用户。
+
+-------------------------------------------------------------------
+序列化
+from user.models import UserModel
+from api.user import UserModelSerializer
+
+u=UserModel.objects.get(pk=1)
+u.name # '李元杰'
+
+serializer = UserModelSerializer(u)
+serializer.data
+# {'id': 1, 'name': '李元杰', 'phone': '13267886101'}
+# 多个的话
+u2=UserSerializer(UserModel.objects.all(),many=True)
+
+from rest_framework.renderers import JSONRenderer
+JSONRenderer().render(serializer.data)
+b'{"id":1,"name":"\xe6\x9d\x8e\xe5\x85\x83\xe6\x9d\xb0","phone":"13267886101"}'
+
+反序列化
+from io import BytesIO
+from rest_framework.parsers import JSONParser
+
+content = BytesIO(JSONRenderer().render(serializer.data))
+JSONParser().parse(content)
+#{'id': 1, 'name': '李元杰', 'phone': '13267886101'}
+
+#可以在view视图函数中使用，对于POST请求，可以直接使用JSONParser()对象request请求进行反向解析
+
+data=JSONParser().parse(request)
+serializer = UserSerializer(data=data)
+serializer.save() # 将数据保存到数据库中
+
+【注意】序列化类创建时常用的参数：instance,data,context,partial,many
+
+2.1三种序列化类
+Serializer
+    声明相关的字段
+    实现create(**validate_data)和update(instance,**validate_data)2个函数
+
+ModelSerializer
+    声明class类，并指定相关的属性
+    model
+    fields字段列表
+HyperlinkedModeSerializer
+
+
+---------------------------------------------------
+2.3 关联关系的序列化
+
+serializers.StringRelatedField：获取关联模型类对象的__str__()返回的字符串
+
+class AlbumSerializer(serializers.ModelSerializer):
+    tracks = serializers.StringRelatedField(many=True)
+
+    class Meta:
+        model = Album
+        fields = ['album_name', 'artist', 'tracks']
+#
+#
+{
+    'album_name': 'Things We Lost In The Fire',
+    'artist': 'Low',
+    'tracks': [
+        '1: Sunflower',
+        '2: Whitetail',
+        '3: Dinosaur Act',
+        ...
+    ]
+}
+——————————————————————————————————————————————————————————
+serializers.PrimaryKeyRelatedField 获取关联模型对象的pk主键id值
+
+class AlbumSerializer(serializers.ModelSerializer):
+    tracks = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
+
+    class Meta:
+        model = Album
+        fields = ['album_name', 'artist', 'tracks']
+#
+#
+{
+    'album_name': 'Undun',
+    'artist': 'The Roots',
+    'tracks': [
+        89,
+        90,
+        91,
+        ...
+    ]
+}
+
+———————————————————————————————————————————————————————————
+serializers.SlugRelatedField(slug_field='关联模型的字段')
+
+class AlbumSerializer(serializers.ModelSerializer):
+    tracks = serializers.SlugRelatedField(
+        many=True,
+        read_only=True,
+        slug_field='title'
+     )
+
+    class Meta:
+        model = Album
+        fields = ['album_name', 'artist', 'tracks']
+#
+#
+{
+    'album_name': 'Dear John',
+    'artist': 'Loney Dear',
+    'tracks': [
+        'Airport Surroundings',
+        'Everything Turns to You',
+        'I Was Only Going Out',
+        ...
+    ]
+}
+————————————————————————————————————————————————————————————————
+serializers.HyperlinkedRelatedField (默认的)
+
+class AlbumSerializer(serializers.ModelSerializer):
+    tracks = serializers.HyperlinkedRelatedField(
+        many=True,
+        read_only=True,
+        view_name='track-detail'
+    )
+
+    class Meta:
+        model = Album
+        fields = ['album_name', 'artist', 'tracks']
+#
+#
+{
+    'album_name': 'Graceland',
+    'artist': 'Paul Simon',
+    'tracks': [
+        'http://www.example.com/api/tracks/45/',
+        'http://www.example.com/api/tracks/46/',
+        'http://www.example.com/api/tracks/47/',
+        ...
+    ]
+}
+————————————————————————————————————————————————————————————
+【重要】：如果关联模型存在序列化类，则内嵌关联模型的序列化类
+
+class ActiveGoodsSerializer(serializers.HyperlinkedModelSerializer):
+    goods = GoodsModelSerializer()
+
+    class Meta:
+        model = ActiveGoodsModel
+        fields = ('goods', 'rate')
+
+
+class ActiveSerializer(serializers.HyperlinkedModelSerializer):
+    # activies = serializers.StringRelatedField(many=True)
+    activies = ActiveGoodsSerializer(many=True)
+
+    class Meta:
+        model = ActiveModel
+        fields = ('title', 'start_time', 'end_time', 'img1', 'activies')
+
+
+三，请求和响应
+3.1 请求对象
+继承HttpRequest，扩展了一部分功能，增加data属性，可以处理PUT/PATCH/POST方法参数
+request.data # request.POST
+
+3.2响应对象Response
+继承TemplateResponse,在创建响应的对象，提供data属性
+return Response(data)
+
+rest_framework框架提供status模块，提供响应的信息
+
+四.认证和权限
+REST_FRAMEWORK = {
+    'DEFAULT_PERMISSION_CLASSES': [
+        # 'rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly',
+        # 'rest_framework.pagination.PageNumberPagination',
+        'rest_framework.authentication.BasicAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+
+默认情况下，APIView中的相关接口方法时不验证权限(授权)，对资源来说不是很安全
+可以通过以下的方式增加验证
+from rest_framework.authentication import TokenAuthentication
+from rest_framework.permissions import IsAuthenticated
+
+class UserAPIView(APIView):
+    authentication_classes = (TokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        datas = UserModel.objects.all()
+        serializer = UserModelSerializer(datas, many=True)
+
+        return Response(serializer.data)
+
+    def post(self, request):
+        serializer = UserModelSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        else:
+            return Response(serializer.errors,
+                            status=status.HTTP_400_BAD_REQUEST)
+
+
+在控制台给用户绑定Token：
+from django.contrib.auth.models import User
+from rest_framework.authtoken.models import Token
+admin = User.objects.get(username='liyuanjie')
+Token.objects.create(user=admin)
+<Token: 92995047aff18cd573aac06dff155cd7609f0b32>
+
+————————————————————————————————————————————————————————————————————————————————
+from表单类
+
+创建一个forms.py文件
+
+import re
+from django import forms
+from django.core.exceptions import ValidationError
+
+from user.models import AppUser
+
+
+class AppUserForm(forms.ModelForm):
+    name = forms.CharField(max_length=20,
+                           min_length=8,
+                           required=True,
+                           label='名字',
+                           error_messages={
+                               'required': '账户不能为空',
+                               'max_length': '账户不能超过20个字符',
+                               'min_length': '账户不能少于8个字符'
+                           })
+
+    # 自定义验证规则: 必须包含大写，小写和数字等字符
+    auth_key = forms.CharField(widget=forms.PasswordInput,
+                               label='口令',
+                               min_length=6,
+                               required=True,
+                               error_messages={
+                                   'required': '口令不能为空',
+                                   'min_length': '口令不少于6位'
+                               })
+
+    class Meta:
+        model = AppUser
+        fields = ('name','auth_key','phone','email')
+        error_messages = {
+            'email': {
+                'required': '邮箱不能为空'
+            },
+            'phone': {
+                'required': '手机号不能为空'
+            }
+        }
+
+    def clean_auth_key(self):  # clean+_+字段名格式定义一个字段验证函数
+        # 以上验证都通过了
+        auth_key = self.cleaned_data.get('auth_key')
+        if all((
+            re.search(r'\d+',auth_key),
+            re.search(r'[a-z]+',auth_key),
+            re.search(r'[A-Z]+',auth_key)
+        )):
+            return auth_key
+
+        raise ValidationError('口令必须包含大写，小写和数字等字符')
+
+在admin.py文件声明
+from .forms import AppUserForm
+
+class AppUserAdmin(admin.ModelAdmin):
+    list_display = ('name','phone','email','create_time','status')
+
+    form = AppUserForm
+
+
+admin.site.register(AppUser,AppUserAdmin)
+
+————————————————————————————————————————————————————
+自定义组件
+创建一个widget.py文件用于创建自定义组件
+
+from django.forms.widgets import Input
+class SendEmailButton(Input):
+    input_type = 'text'
+    template_name = 'send_email_widget.html'
+
+    def __init__(self, attrs=None, render_value=True):
+        super().__init__(attrs)
+        self.render_value = render_value
+
+    def get_context(self, name, value, attrs):
+        if not self.render_value:
+            value = None
+        return super().get_context(name, value, attrs)
+
+定义一个接口
+def send_mail(request, email):
+    return JsonResponse({
+        'msg': '发送成功',
+        'info': {
+            'email': email
+        }
+    })
+
+urlpatterns = [
+    path('send_mail/<email>/', send_mail)
+]
+
+
+创建一个send_email_widget.html模板,内容如下
+
+<input type="{{ widget.type }}" name="{{ widget.name }}"{% if widget.value != None %}
+       value="{{ widget.value|stringformat:'s' }}"{% endif %}{% include "django/forms/widgets/attrs.html" %} />
+</div>
+<p style="padding: 5px;">
+    <button style="padding: 5px 10px; border-radius: 5px; background-color: lightblue" type="button" onclick="send('{{ widget.value }}')">发送激活邮箱</button>
+</p>
+
+<script>
+    function send(email) {
+        fetch('/send_mail/'+email+"/").then(resp=>resp.json()).then(data=>{
+            alert(data.msg);
+        })
+    }
+</script>
+
+在forms.py表单控件中
+from .widgets import SendEmailButton
+
+class AppUserForm(forms.ModelForm):
+
+    # 通过widget属性指定自定义widget部件
+    email = forms.CharField(widget=SendEmailButton,
+                            label='邮箱')
+
+-------------------------------------------------
+三，django中的邮件发送
+3.1选择邮箱
+在此配置了163的邮箱，从设置页面中获取到smtp的服务相关信息
+EMAIL_HOST = 'smtp.163.com'
+EMAIL_PORT = 25
+EMAIL_HOST_USER = 'Jack_liyuanjie@163.com'
+EMAIL_HOST_PASSWORD = 'RRRJJGRCEUJZOEZM'
+EMAIL_HOST_PASSWORD使用了授权码
+
+3.2django.core.mail.send_mail()
+from django.core.mail import send_mail as send_163_mail
+
+def send_mail(request, email):
+    subtitle = '用户激活通知'
+    message = '<html>亲爱的，注册的用户liyuanjie！<a href="www.baidu.com">请先激活用户</a></html>'
+——————————————————————————————————————————————————————————
+    # 直接发送
+    send_163_mail(subtitle, '',html_message=message,
+                  from_email='Jack_liyuanjie@163.com',
+                  recipient_list=[email])
+——————————————————————————————————————————————————————————                  ————————————————————————
+    # 使用线程方式发送
+    Thread(target=send_163_mail,
+           kwargs={
+               'subject':subtitle,
+               'message': '',
+               'html_message': message,
+               'from_email': 'Jack_liyuanjie@163.com',
+               'recipient_list':[email]
+           }).start()
+    return JsonResponse({
+        'msg': '发送成功',
+        'info': {
+            'email': email
+        }
+    })
+
+------------------------------------------------------------
+跨域请求
+一，django的接口跨域请求
+请求URL中的同源：协议，域名和端口，任何一种不同都是跨域请求。
+1.1安装库
+我们使用CORS解决跨域请求问题，django原始方式，在创建响应对象后
+    增加cors相关的响应头，如下:
+    response["Access-Control-Allow-Origin"] = "*"
+    response["Access-Control-Allow-Methods"] = "POST,GET,OPTIONS"
+    response["Access-Control-Max-Age"] = "1000"
+    response["Access-Control-Allow-Headers"] = "*"
+
+如果跨域请求的接口较多，也可以使用第三方插件django-cors-headers来快
+速配置，类似于flask-cors。pip安装命令如下：
+pip install django-cors-headers
+
+1.2配置
+INSTALLED_APPS = [
+    ...
+    'corsheaders',
+]
+
+MIDDLEWARE = [
+    ...
+    'corsheaders.middleware.CorsMiddleware',
+    'django.middleware.common.CommonMiddleware',
+    ...
+]
+
+# Cors设置-白名单
+CORS_ORIGIN_WHITELIST = (
+    'http://localhost:9000', #允许跨域请求的协议，域名和端口
+)
+# CORS_ORIGIN_ALLOW_ALL = True # 允许所有的源，与白名单相同。
+CORS_ALLOW_CREDENTIALS = True # 启用Cookie
+
+# 跨域允许的请求方式(可选)
+CORS_ALLOW_METHODS = (
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+)
+
+# 跨域允许的头部参数(可选)
+CORS_ALLOW_HEADERS = (
+    'XMLHttpRequest',
+    'X_FILENAME',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    x-requested-with,
+    'Pragma',
+)
+
+接口测试，单元测试
+import requests
+import unittest
+from unittest import TestCase
+
+class CityTestCase(TestCase):
+    def test_01_all_city(self):
+        url = 'http://localhost:8000/city/all'
+        resp = requests.get(url)
+        city_list = resp.json().get('data')
+        city = random.choice(city_list)
+        self.city_id = city['id']
+        print('----定位当前城市----',city['city_name'])
+
+    def ...
+
+if __name__ == '__main__':
+    unittest.main()
+
+——————————————————————————————————————————————————————————————————————
+itsdangerous 加密：
+
+from itsdangerous import TimedJSONWebSignatureSerializer as Serializer
+serializer = Serializer('liyuanjie',3600) # 第一个参数是密钥，第二个参数时过期时间
+info = {'msg':1}
+res = serializer.dumps(info)
+res
+b'eyJhbGciOiJIUzUxMiIsImlhdCI6MTYyNzk3MTU4OCwiZXhwIjoxNjI3OTc1MTg4fQ.eyJtc2ciOjF9.9pFb_VO7EWqtEK5CHYXQlSH5B7Lwq91a6LRDYJ0GDVDhkZ8g0Zs7OI4yOj6y61GRHMu6iVuEunoB99ndYw9QyA'
+serializer.loads(res)
+{'msg': 1}
+
